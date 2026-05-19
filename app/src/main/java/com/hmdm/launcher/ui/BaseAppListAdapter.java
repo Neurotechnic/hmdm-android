@@ -60,6 +60,7 @@ public abstract class BaseAppListAdapter extends RecyclerView.Adapter<BaseAppLis
     protected GradientDrawable selectedItemBorder;
     protected boolean focused = true;
     protected boolean dpadUsed = false;
+    protected boolean forceWhiteText = false;
 
     protected Picasso picasso = null;
 
@@ -119,7 +120,9 @@ public abstract class BaseAppListAdapter extends RecyclerView.Adapter<BaseAppLis
         holder.binding.rootLinearLayout.setTag(appInfo);
         holder.binding.textView.setText(appInfo.name);
 
-        if (settingsHelper.getConfig().getTextColor() != null && !settingsHelper.getConfig().getTextColor().trim().equals("")) {
+        if (forceWhiteText || appInfo.type == AppInfo.TYPE_FOLDER) {
+            holder.binding.textView.setTextColor(parentActivity.getResources().getColor(R.color.white));
+        } else if (settingsHelper.getConfig().getTextColor() != null && !settingsHelper.getConfig().getTextColor().trim().equals("")) {
             try {
                 holder.binding.textView.setTextColor(Color.parseColor(settingsHelper.getConfig().getTextColor()));
             } catch (Exception e) {

@@ -9,6 +9,7 @@ import java.util.List;
 public class FolderAppListAdapter extends BaseAppListAdapter {
     public FolderAppListAdapter(Activity parentActivity, List<AppInfo> items, OnAppChooseListener appChooseListener) {
         super(parentActivity, appChooseListener, null);
+        this.forceWhiteText = true;
         this.items = items;
         initShortcuts();
     }

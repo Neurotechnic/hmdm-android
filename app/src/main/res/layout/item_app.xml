@@ -40,6 +40,7 @@
         android:layout_height="wrap_content"
         android:id="@+id/textView"
         android:gravity="center"
+        android:textColor="@color/white"
         android:maxLines="2"
         android:ellipsize="end"
         android:padding="5dp"/>

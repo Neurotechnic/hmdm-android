@@ -22,10 +22,14 @@ package com.hmdm.launcher.util;
 import android.os.Parcel;
 import android.os.Parcelable;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class AppInfo implements Parcelable {
     public static final int TYPE_APP = 0;
     public static final int TYPE_WEB = 1;
     public static final int TYPE_INTENT = 2;
+    public static final int TYPE_FOLDER = 3;
 
     public int type;
     public Integer keyCode;
@@ -39,6 +43,8 @@ public class AppInfo implements Parcelable {
     public String intent;
     public boolean multiIcon = false;
     public int iconIndex = 0;
+    public String folderName;
+    public List<AppInfo> folderItems;
 
     public AppInfo(){}
 
@@ -55,6 +61,8 @@ public class AppInfo implements Parcelable {
         intent = appInfo.intent;
         multiIcon = appInfo.multiIcon;
         iconIndex = appInfo.iconIndex;
+        folderName = appInfo.folderName;
+        folderItems = appInfo.folderItems;
     }
 
     protected AppInfo(Parcel in) {
@@ -70,6 +78,9 @@ public class AppInfo implements Parcelable {
         intent = in.readString();
         multiIcon = in.readInt() == 1;
         iconIndex = in.readInt();
+        folderName = in.readString();
+        folderItems = new ArrayList<>();
+        in.readTypedList(folderItems, AppInfo.CREATOR);
     }
 
     @Override
@@ -86,6 +97,8 @@ public class AppInfo implements Parcelable {
         dest.writeString(intent);
         dest.writeInt(multiIcon ? 1 : 0);
         dest.writeInt(iconIndex);
+        dest.writeString(folderName);
+        dest.writeTypedList(folderItems);
     }
 
     @Override

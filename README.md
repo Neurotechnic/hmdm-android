@@ -1,3 +1,20 @@
+## Custom launcher folders
+
+This fork supports simple launcher folders based on the application symbol text.
+
+Syntax:
+
+[FolderName] App label
+
+Example:
+
+[Büro] Acrobat Reader
+[Büro] LibreOffice
+[Support] TeamViewer
+
+Apps without this prefix are displayed normally.
+No server-side changes are required.
+
 # Headwind MDM: free and open-source MDM launcher
 
 A Powerful Open Source Platform to Manage your Enterprise Android Devices

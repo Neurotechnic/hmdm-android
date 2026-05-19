@@ -1,6 +1,7 @@
 package com.hmdm.launcher.ui;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Intent;
@@ -20,6 +21,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.core.content.FileProvider;
+import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.hmdm.launcher.BuildConfig;
@@ -85,9 +87,19 @@ public abstract class BaseAppListAdapter extends RecyclerView.Adapter<BaseAppLis
     protected void initShortcuts() {
         shortcuts = new HashMap<>();
         for (AppInfo item : items) {
-            if (item.keyCode != null) {
-                shortcuts.put(item.keyCode, item);
+            addShortcut(item);
+        }
+    }
+
+    private void addShortcut(AppInfo item) {
+        if (item.type == AppInfo.TYPE_FOLDER && item.folderItems != null) {
+            for (AppInfo folderItem : item.folderItems) {
+                addShortcut(folderItem);
             }
+            return;
+        }
+        if (item.keyCode != null) {
+            shortcuts.put(item.keyCode, item);
         }
     }
 
@@ -175,6 +187,10 @@ public abstract class BaseAppListAdapter extends RecyclerView.Adapter<BaseAppLis
                     case AppInfo.TYPE_INTENT:
                         holder.binding.imageView.setImageDrawable(
                                 parentActivity.getResources().getDrawable(getDrawableResourceForIntent(appInfo)));
+                        break;
+                    case AppInfo.TYPE_FOLDER:
+                        holder.binding.imageView.setImageDrawable(
+                                parentActivity.getResources().getDrawable(R.drawable.ic_folder_launcher));
                         break;
                 }
             }
@@ -276,6 +292,9 @@ public abstract class BaseAppListAdapter extends RecyclerView.Adapter<BaseAppLis
 
     protected void chooseApp(AppInfo appInfo) {
         switch (appInfo.type) {
+            case AppInfo.TYPE_FOLDER:
+                openFolder(appInfo);
+                return;
             case AppInfo.TYPE_APP:
                 Intent launchIntent = getLaunchIntentForApp(appInfo);
                 if (launchIntent != null) {
@@ -349,6 +368,40 @@ public abstract class BaseAppListAdapter extends RecyclerView.Adapter<BaseAppLis
         if (appChooseListener != null) {
             appChooseListener.onAppChoose(appInfo);
         }
+    }
+
+    private void openFolder(AppInfo folderInfo) {
+        if (folderInfo.folderItems == null || folderInfo.folderItems.size() == 0) {
+            return;
+        }
+
+        RecyclerView recyclerView = new RecyclerView(parentActivity);
+        int itemWidth = parentActivity.getResources().getDimensionPixelSize(R.dimen.app_list_item_size);
+        int dialogWidth = parentActivity.getResources().getDisplayMetrics().widthPixels
+                - parentActivity.getResources().getDimensionPixelSize(R.dimen.activity_horizontal_margin) * 2;
+        int folderSpanCount = Math.max(1, dialogWidth / itemWidth);
+        recyclerView.setLayoutManager(new GridLayoutManager(parentActivity, folderSpanCount));
+        int padding = parentActivity.getResources().getDimensionPixelSize(R.dimen.activity_vertical_margin);
+        recyclerView.setPadding(padding, padding, padding, padding);
+
+        final AlertDialog[] folderDialog = new AlertDialog[1];
+        FolderAppListAdapter folderAdapter = new FolderAppListAdapter(parentActivity, folderInfo.folderItems, appInfo -> {
+            if (folderDialog[0] != null) {
+                folderDialog[0].dismiss();
+            }
+            if (appChooseListener != null) {
+                appChooseListener.onAppChoose(appInfo);
+            }
+        });
+        folderAdapter.setSpanCount(folderSpanCount);
+        recyclerView.setAdapter(folderAdapter);
+
+        folderDialog[0] = new AlertDialog.Builder(parentActivity)
+                .setTitle(folderInfo.name)
+                .setView(recyclerView)
+                .setNegativeButton(android.R.string.cancel, null)
+                .create();
+        folderDialog[0].show();
     }
 
     private ResolveInfo getResolveInfoMultiIcon(AppInfo appInfo) {

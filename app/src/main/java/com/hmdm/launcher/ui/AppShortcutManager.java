@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -29,28 +30,7 @@ public class AppShortcutManager {
     }
 
     public int getInstalledAppCount(Context context, boolean bottom) {
-        Map<String, Application> requiredPackages = new HashMap();
-        Map<String, Application> requiredLinks = new HashMap();
-        getConfiguredApps(context, bottom, requiredPackages, requiredLinks);
-        PackageManager pm = context.getPackageManager();
-        List<ApplicationInfo> packs = pm.getInstalledApplications(0);
-        if (packs == null) {
-            return requiredLinks.size();
-        }
-        // Calculate applications
-        int packageCount = 0;
-        for(int i = 0; i < packs.size(); i++) {
-            ApplicationInfo p = packs.get(i);
-            if (pm.getLaunchIntentForPackage(p.packageName) != null &&
-                    requiredPackages.containsKey(p.packageName)) {
-                Intent intent = new Intent(Intent.ACTION_MAIN);
-                intent.addCategory(Intent.CATEGORY_LAUNCHER);
-                intent.setPackage(p.packageName);
-                List<ResolveInfo> shortcuts = pm.queryIntentActivities(intent, 0);
-                packageCount += shortcuts.size();
-            }
-        }
-        return requiredLinks.size() + packageCount;
+        return getInstalledApps(context, bottom).size();
     }
 
     public List<AppInfo> getInstalledApps(Context context, boolean bottom) {
@@ -73,7 +53,8 @@ public class AppShortcutManager {
                 AppInfo newInfo = new AppInfo();
                 newInfo.type = AppInfo.TYPE_APP;
                 newInfo.keyCode = app.getKeyCode();
-                newInfo.name = app.getIconText() != null ? app.getIconText() : p.loadLabel(pm).toString();
+                String fallbackName = p.loadLabel(pm).toString();
+                applyLauncherLabel(newInfo, app.getIconText() != null ? app.getIconText() : fallbackName, fallbackName);
                 newInfo.packageName = p.packageName;
                 newInfo.iconUrl = app.getIcon();
                 newInfo.screenOrder = app.getScreenOrder();
@@ -89,7 +70,9 @@ public class AppShortcutManager {
                         AppInfo appInfo = new AppInfo(newInfo);
                         appInfo.multiIcon = true;
                         appInfo.iconIndex = j;
-                        appInfo.name = shortcuts.get(j).loadLabel(pm).toString();
+                        if (appInfo.folderName == null) {
+                            appInfo.name = shortcuts.get(j).loadLabel(pm).toString();
+                        }
                         // Icon is loaded in BaseAppListAdapter because here's just a custom URL
                         appInfos.add(appInfo);
                     }
@@ -104,7 +87,7 @@ public class AppShortcutManager {
             AppInfo newInfo = new AppInfo();
             newInfo.type = entry.getValue().getType().equals(Application.TYPE_INTENT) ? AppInfo.TYPE_INTENT : AppInfo.TYPE_WEB;
             newInfo.keyCode = entry.getValue().getKeyCode();
-            newInfo.name = entry.getValue().getIconText();
+            applyLauncherLabel(newInfo, entry.getValue().getIconText(), getLinkFallbackName(entry));
             newInfo.url = entry.getValue().getUrl();
             newInfo.iconUrl = entry.getValue().getIcon();
             newInfo.screenOrder = entry.getValue().getScreenOrder();
@@ -116,7 +99,49 @@ public class AppShortcutManager {
         // Apply manually set order
         Collections.sort(appInfos, new AppInfosComparator());
 
-        return appInfos;
+        return buildLauncherItems(appInfos);
+    }
+
+    private void applyLauncherLabel(AppInfo appInfo, CharSequence label, String fallbackName) {
+        ParsedLauncherLabel parsedLabel = FolderLabelParser.parse(label, fallbackName);
+        appInfo.name = parsedLabel.getVisibleLabel();
+        if (parsedLabel.isFolder()) {
+            appInfo.folderName = parsedLabel.getFolderName();
+        }
+    }
+
+    private String getLinkFallbackName(Map.Entry<String, Application> entry) {
+        if (entry.getValue().getName() != null) {
+            return entry.getValue().getName();
+        }
+        return entry.getKey();
+    }
+
+    private List<AppInfo> buildLauncherItems(List<AppInfo> appInfos) {
+        List<AppInfo> launcherItems = new ArrayList<>();
+        Map<String, AppInfo> folders = new LinkedHashMap<>();
+
+        for (AppInfo appInfo : appInfos) {
+            if (appInfo.folderName == null) {
+                launcherItems.add(appInfo);
+                continue;
+            }
+
+            AppInfo folder = folders.get(appInfo.folderName);
+            if (folder == null) {
+                folder = new AppInfo();
+                folder.type = AppInfo.TYPE_FOLDER;
+                folder.name = appInfo.folderName;
+                folder.folderName = appInfo.folderName;
+                folder.screenOrder = appInfo.screenOrder;
+                folder.folderItems = new ArrayList<>();
+                folders.put(appInfo.folderName, folder);
+                launcherItems.add(folder);
+            }
+            folder.folderItems.add(appInfo);
+        }
+
+        return launcherItems;
     }
 
     private void getConfiguredApps(Context context, boolean bottom, Map<String, Application> requiredPackages, Map<String, Application> requiredLinks) {

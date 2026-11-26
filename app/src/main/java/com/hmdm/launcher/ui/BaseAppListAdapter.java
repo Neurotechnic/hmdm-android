@@ -120,7 +120,7 @@ public abstract class BaseAppListAdapter extends RecyclerView.Adapter<BaseAppLis
         holder.binding.rootLinearLayout.setTag(appInfo);
         holder.binding.textView.setText(appInfo.name);
 
-        if (forceWhiteText || appInfo.type == AppInfo.TYPE_FOLDER) {
+        if (forceWhiteText) {
             holder.binding.textView.setTextColor(parentActivity.getResources().getColor(R.color.white));
         } else if (settingsHelper.getConfig().getTextColor() != null && !settingsHelper.getConfig().getTextColor().trim().equals("")) {
             try {

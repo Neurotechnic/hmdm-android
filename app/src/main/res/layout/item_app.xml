@@ -26,24 +26,23 @@
     android:gravity="center_horizontal"
     tools:ignore="UseCompoundDrawables"
     android:id="@+id/root_linearLayout"
-    android:layout_margin="5dp">
+    android:layout_margin="2dp">
 
     <ImageView
         android:layout_width="@dimen/app_icon_size"
         android:layout_height="@dimen/app_icon_size"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="12dp"
         android:id="@+id/imageView"
         tools:ignore="ContentDescription" />
 
     <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:id="@+id/textView"
-        android:gravity="center"
-        android:textColor="@color/white"
-        android:maxLines="2"
-        android:ellipsize="end"
-        android:padding="5dp"/>
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:id="@+id/textView"
+      android:gravity="center"
+      android:maxLines="2"
+      android:ellipsize="end"
+      android:padding="5dp"/>
 
 </LinearLayout>
 </layout>

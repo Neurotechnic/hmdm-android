@@ -170,6 +170,7 @@ public class ConfigUpdater {
                         if (uiNotifier != null) {
                             uiNotifier.onConfigUpdateServerError(getErrorText());
                         }
+                        lockBackOnFailure();
                         break;
                     case Const.TASK_NETWORK_ERROR:
                         RemoteLogger.log(context, Const.LOG_WARN, "Failed to update config: network error");
@@ -184,6 +185,7 @@ public class ConfigUpdater {
                                     // if it is required by the web panel
                                     // so the user can set up WiFi even in kiosk mode
                                     uiNotifier.onConfigUpdateNetworkError(getErrorText());
+                                    lockBackOnFailure();
                                 } else {
                                     updateRemoteLogConfig();
                                 }
@@ -191,12 +193,17 @@ public class ConfigUpdater {
                                 if (uiNotifier != null) {
                                     uiNotifier.onConfigUpdateNetworkError(getErrorText());
                                 }
+                                lockBackOnFailure();
                             }
                         }
                         break;
                 }
             }
         }.execute();
+    }
+
+    private void lockBackOnFailure() {
+        Utils.lockUserRestrictions(context, settingsHelper.getConfig().getRestrictions());
     }
 
     public void skipConfigLoad() {
@@ -286,7 +293,7 @@ public class ConfigUpdater {
                 keepaliveTime = newKeepaliveTime;
             }
         }
-        if (BuildConfig.ENABLE_PUSH && pushOptions != null) {
+        if (pushOptions != null) {
             if (pushOptions.equals(ServerConfig.PUSH_OPTIONS_MQTT_WORKER)
                     || pushOptions.equals(ServerConfig.PUSH_OPTIONS_MQTT_ALARM)) {
                 try {
@@ -619,13 +626,15 @@ public class ConfigUpdater {
                 protected void onPostExecute(RemoteFileStatus fileStatus) {
                     if (fileStatus != null) {
                         if (!fileStatus.installed) {
-                            filesForInstall.add( 0, fileStatus.remoteFile );
                             if (uiNotifier != null) {
                                 if (!fileStatus.downloaded) {
                                     uiNotifier.onFileDownloadError(fileStatus.remoteFile);
                                 } else {
                                     uiNotifier.onFileInstallError(fileStatus.remoteFile);
                                 }
+                            } else {
+                                Log.i(Const.LOG_TAG, "loadAndInstallFiles(): proceed to next file");
+                                loadAndInstallFiles();
                             }
                             // onFileDownloadError() method contents
                             /*
@@ -677,9 +686,9 @@ public class ConfigUpdater {
         if (file.getAbsolutePath().startsWith("/enterprise/device/settings/datawedge/autoimport")) {
             // By default, access to all is disabled, and Datawedge fails with "Access denied",
             // so we should grant access manually
-            String cmd = "chmod 666 " + file.getAbsolutePath();
-            Log.d(Const.LOG_TAG, "Post-processing: run command: " + cmd);
-            String res = SystemUtils.executeShellCommand(cmd, false);
+            String[] cmdArray = {"chmod", "666", file.getAbsolutePath()};
+            Log.d(Const.LOG_TAG, "Post-processing: run command: chmod 666 " + file.getAbsolutePath());
+            String res = SystemUtils.executeShellCommand(cmdArray);
             if (!"".equals(res)) {
                 Log.d(Const.LOG_TAG, "Execution failed: " + res);
             } else {
@@ -719,11 +728,17 @@ public class ConfigUpdater {
 
     private void installCertificates() {
         final String certPaths = settingsHelper.getAppPreference(context.getPackageName(), "certificates");
-        if (certPaths != null) {
+        final String clientCertPaths = settingsHelper.getAppPreference(context.getPackageName(), "client-certificates");
+        if (certPaths != null || clientCertPaths != null) {
             new AsyncTask<Void, Void, Void>() {
                 @Override
                 protected Void doInBackground(Void... voids) {
-                    CertInstaller.installCertificatesFromFiles(context, certPaths.trim());
+                    if (certPaths != null) {
+                        CertInstaller.installCertificatesFromFiles(context, certPaths.trim());
+                    }
+                    if (clientCertPaths != null) {
+                        CertInstaller.installClientCertificatesFromFiles(context, clientCertPaths.trim());
+                    }
                     return null;
                 }
 
@@ -1152,8 +1167,11 @@ public class ConfigUpdater {
                 }
             };
         } else {
-            // Renewed the configuration multiple times?
-            unregisterAppInstallReceiver();
+            // A previous update flow is still waiting for its installation to complete:
+            // keep its receiver, otherwise the completion is never heard and the package
+            // stays in pendingInstallations until the process restarts
+            Log.d(Const.LOG_TAG, "Install completion receiver already registered");
+            return;
         }
 
         try {

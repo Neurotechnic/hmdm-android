@@ -7,18 +7,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-buildscript {
-    repositories {
-        jcenter()
-    }
-}
-
 apply plugin: 'com.android.application'
-
-repositories {
-    jcenter()
-    mavenCentral()
-}
 
 def localProperties = new Properties()
 def localPropertiesFile = rootProject.file("local.properties")
@@ -33,10 +22,16 @@ android {
 
     defaultConfig {
         applicationId "com.hmdm.launcher"
-        minSdkVersion 16
+        //minSdkVersion 16
+        // Starting with version 6.33, we use newer version of com.fasterxml.jackson
+        // which is only compatible with API 26 (Android 8+).
+        // To avoid failures after the upgrade, the minimal SDK version increased here.
+        // If it is required to maintain the backward compatibility with Android 5-7,
+        // downgrade the dependency to com.fasterxml.jackson to 2.13.5
+        minSdkVersion 26
         targetSdkVersion 34
-        versionCode 15353
-        versionName "6.35_custom2"
+        versionCode 15401
+        versionName "6.40_custom1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         dataBinding {
@@ -55,9 +50,20 @@ android {
         buildConfigField("String", "SECONDARY_BASE_URL", "\"https://app.h-mdm.com\"")
         buildConfigField("String", "SERVER_PROJECT", "\"\"")
         buildConfigField("String", "DEVICE_ID_CHOICE", "\"user\"")
-        buildConfigField("Boolean", "ENABLE_PUSH", "true")
+        // Configuration key from the enrollment JSON (String)
+        buildConfigField("String", "ENROLLMENT_CONFIG_KEY", "null")
+        // ID of the customer enrolling devices (in multi-tenant setup only)
+        buildConfigField("String", "ENROLLMENT_CUSTOMER", "null")
+        // Device group IDs (optional, comma-separated ids)
+        buildConfigField("String", "ENROLLMENT_GROUPS", "null")
+        // MQTT port for Push notifications
         buildConfigField("Integer", "MQTT_PORT", "31000")
         buildConfigField("Boolean", "SYSTEM_PRIVILEGES", "false")
+        // If set to true, Headwind MDM prompts the user to reboot a device if failed to set the
+        // device owner. This could be used together with the SYSTEM_PRIVILEGES option
+        buildConfigField("Boolean", "REBOOT_ON_DEVICE_OWNER_FAIL", "false")
+        // Set this parameter to true if you'd like to trust every certificate, for example, self-signed
+        // Not recommended for security purposes!
         buildConfigField("Boolean", "TRUST_ANY_CERTIFICATE", "false")
         buildConfigField("String", "REQUEST_SIGNATURE", "\"changeme-C3z9vi54\"")
         buildConfigField("Boolean", "CHECK_SIGNATURE", "false")
@@ -79,6 +85,12 @@ android {
             def storePasswordValue = localProperties.getProperty("RELEASE_STORE_PASSWORD")
             def keyAliasValue = localProperties.getProperty("RELEASE_KEY_ALIAS")
             def keyPasswordValue = localProperties.getProperty("RELEASE_KEY_PASSWORD")
+
+            def passwordFile = localProperties.getProperty("RELEASE_PASSWORD_FILE")
+            if (passwordFile) {
+                storePasswordValue = file(passwordFile).readLines("UTF-8").first()
+                keyPasswordValue = storePasswordValue
+            }
 
             if (storeFilePath != null && storePasswordValue != null && keyAliasValue != null && keyPasswordValue != null) {
                 storeFile file(storeFilePath)
